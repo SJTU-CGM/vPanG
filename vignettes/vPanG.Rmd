@@ -1,0 +1,472 @@
+---
+title: "Getting started with vPanG"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{vPanG}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+**2021-04**
+
+## 1. Introduction
+ 
+### 1.1 Pan-genome and PAV analysis
+
+&emsp;&emsp;Pan-genome is the total genes found across members of a given population, revealing the diversity and functional potential within that population. PAV(Presence/absence variation) analysis is an essential step in pangenome analysis. The core genome contains genes shared by all individuals and the distributed genome consist of genes not shared by all. The distributed genome can be further divided into genes shared in most members (soft-core genes), genes shared between some members (distributed/accessory genes), and genes present in only one member (unique/private genes).
+
+&emsp;&emsp;“Map-to-pan” is a common strategy for eukaryotic pan-genome analyses. A pan-genome is first constructed by integrating the reference genome and non-reference sequences. Then, reads are aligned to the pan-genome and the percentage of gene region and coding region covered by read alignment are examined. Finally, gene presence/absence variations (PAVs) are determined and consequent analysis is carried out based on this resulted PAV table.
+
+
+### 1.2 The core processing workflow of vPanG
+
+&emsp;&emsp;The tool vPanG is efficient to explore and visualize the complex results in PAV analysis. It provides four modules to 1) display gene coverage distribution, 2) analyze and visualize PAV table, 3) estimate pan/core genome sizes by simulation, and 4) find phenotype-associated genes.
+
+&emsp;&emsp;The workflow starts with an object of COV(module 1) or PAV(module 2-4) class. It can be produced by function `get_cov_obj()` and `get_pav_obj()`. It contains coverage/PAV matrix, arguments, phenotype information, and gene information, and will be the main input for the subsequent steps. 
+
+* Module 1 focuses on showing the gene coverage and the distribution of gene coverage among individuals. The functions in module 1 are `cov_heatmap()` and `cov_density()`.
+
+* Module 2 focuses on PAV analysis, including overview, classifying genes, clustering, PCA analysis. The functions for PAV analysis are `pav_heatmap()`, `pav_hist()`, `pav_stackbar()`, `pav_cluster()`, `pav_halfviolin()` and `pav_pca()`.
+
+* Module 3 focuses on pan/core/private genome size estimation by simulation and drawing growth curve. The functions in module 3 are `sim_stat()`, `sim_plot()`, `sim_multi_stat()` and `sim_multi_plot`.
+
+* Module 4 focuses on phenotype association and visualization. The functions in module 4 include `phen_heatmap()`, `phen_manhattan()`, `phen_block()`, `phen_bar()` and `phen_violin()`.
+
+
+## 2. Installation
+
+### 2.1 Installing R/RStudio
+&emsp;&emsp;In order to run vPanG, we need the R software environment, which can be freely downloaded as follows:
+
+* Install [R](https://www.r-project.org/)
+* Install [RStudio](https://www.rstudio.com/)
+
+### 2.2 Check or install packages
+
+```{r eval=FALSE}
+packages <- c("snowfall", "data.table", "ggdendro", "ggplot2", "ggrepel", "ggsignif", "randomcoloR")
+lapply(packages, function(x) {
+	if(!require(x, character.only = TRUE)) {
+		install.packages(x, dependencies = TRUE)
+	}})
+if (!requireNamespace("BiocManager", quietly = TRUE)){
+  install.packages("BiocManager")
+}
+BiocManager::install("ComplexHeatmap")
+
+```
+
+### 2.3 Install metaFunc from github.
+
+```{r eval=FALSE}
+if (!requireNamespace("devtools", quietly = TRUE))
+  install.packages("devtools")
+library(devtools)
+install_github("SJTU-CGM/vPanG", build_vignettes = TRUE)
+```
+
+
+## 3. Input data
+
+### 3.1 `COV` class
+
+&emsp;&emsp;The function `get_cov_obj` is to generate an object of `COV` class. It requires a numeric `matrix` or a `data.frame` of gene coverage data. It can be the percentage of gene region (or coding region) being covered by reads. Each row is a gene and the columns are sample names. Besides, the `phen_info` and `gene_info` are optional. The `phen_info` should be a `data.frame` of phenotype and any other attribute about samples. The `gene_info` should be a `data.frame` of gene information (e.g. reference/novel, chromosomes and position).
+
+### 3.2 `PAV` class
+
+&emsp;&emsp;The function `get_pav_obj` is used to generate an object of `PAV` class. It requires a numeric PAV table as the input. The numeric value of `0` represents absence and `1` represents presence. The row names are gene names and the columns are sample names. The `phen_info` and `gene_info` are the same as in the `COV` class.
+
+&emsp;&emsp;The `add_softcore` and `add_private` are logical values indicating whether to consider "softcore" or "private" when determining the gene types.. 
+
+* If `add_softcore` is `TRUE`, the genes with loss rates not significantly higher than `softcore_loss_rate` will be considered as "softcore gene". A binomial test (with a null hypothesis of loss rate < `softcore_loss_rate`) is carried out for each gene. A p-value below `softcore_p_value` means that this gene is lost in a significant proportion and is a "distributed gene"(loss rate > `softcore_loss_rate`). 
+
+* If `add_private` is `TRUE`, the genes present in only one sample will be considered as "private gene".
+
+### 3.3 Demo data
+&emsp;&emsp;The demo data is used to demonstrate the functions in vPanG. It comes from SGDP (Simons Genome Diversity Project, Mallick S, 2016). We align the reads to a pan-genome of human and obtain the CDS coverage for each gene. We selected 111 samples from Asia (EastAsia, SouthAsia and CentralAsiaSiberia) and genes on autosomes. To show the result of functions more clearly, we removed genes with a coverage of 100% in all samples.
+
+```{r setup}
+library(vPanG)
+data("vPanG_demo")
+knitr::kable(head(cov_data[, 1:6]))
+knitr::kable(head(gene_info_data))
+knitr::kable(head(phen_info_data))
+```
+
+
+```{r}
+my_cov <- get_cov_obj(cov_data, gene_info = gene_info_data, phen_info = phen_info_data)
+
+pav_data <- ifelse(cov_data > 0.9, 1, 0)
+my_pav <- get_pav_obj(pav_data, gene_info = gene_info_data, phen_info = phen_info_data)
+
+```
+
+
+
+## 4. Module1: Coverage distribution
+
+### 4.1 `cov_heatmap()`
+
+&emsp;&emsp;A heatmap can give an overview of gene coverage across samples. The color scheme of the heatmap can be generated by setting `cov_colors`. The row and column can be clustered. The cluster has some general settings, such as whether to apply clustering or show dendrograms, the side of the dendrograms, and the width of the dendrograms.
+
+```{r fig.height=4, fig.width=7}
+cov_heatmap(my_cov, 
+            cov_colors = c("white", "#F8766D"),
+            cluster_rows = T,
+            cluster_columns = T)
+```
+
+
+&emsp;&emsp;The `phen_info` and `gene_info` can be added to the figure. The `anno_param_column_gene` and `anno_param_row_phen` are the parameters list. The `gene_info_color_list` and `phen_info_color_list` are used to change the colors of annotations.
+
+```{r fig.height=5, fig.width=7}
+
+cov_heatmap(my_cov, 
+            cluster_rows = T,
+            cluster_columns = T,
+            add_phen_info = c("Genetic_sex", "Region"), 
+            phen_info_color_list = list(
+              Genetic_sex = c("XX" = "#A6D854", "XY" = "#8DA0CB", "Not Assigned" = "gray70"), 
+              Region = structure(c("#66C2A5", "#FFD92F", "#FC8D62"), 
+                                 names = unique(phen_info_data$Region))),
+            add_gene_info = c("length"),
+            gene_info_color_list = list(length = c("#dbebfa", "#377EB8")))
+```
+
+
+### 4.2 `cov_density()`
+
+&emsp;&emsp;You can focus on serval genes of interest. 
+
+```{r fig.height=4, fig.width=7}
+genes <- names(head(sort(apply(cov_data, 1, median))))
+cov_density(my_cov, genes)
+```
+
+&emsp;&emsp;The `gene_info` can be added.
+
+```{r fig.height=4, fig.width=7}
+cov_density(my_cov, genes, 
+            row_names_side = "right",
+            add_gene_info = c("chr", "length"),
+            gene_info_color_list = list(length = c("#dbebfa", "#377EB8")))
+```
+
+
+## 5. Module 2: PAV analysis
+
+### 5.1 `pav_halfviolin()`
+
+&emsp;&emsp;You can observe the number of genes present in samples in a half-violin plot. The left half is the density estimate and each point in the right represents a sample.
+
+```{r fig.height=4, fig.width=3}
+pav_halfviolin(my_pav)
+```
+
+&emsp;&emsp;If you add `phen_info`, the points will be grouped according to the phenotype.
+
+```{r fig.height=4, fig.width=6}
+pav_halfviolin(my_pav, 
+               add_phen_info = "Region")
+```
+
+
+### 5.2 `pav_hist()`
+
+&emsp;&emsp;The genes can be divided into multiple types based on the number of samples containing them. `pav_hist()` integrate a ring chart and a histogram to showing the numbers of gene types. The `ring_pos_x`, `ring_pos_y`, and `ring_r` specify the position and radius of the ring chart. The x-axis of the histogram is the number of samples, ranging from 1 to all samples. The y-axis is the number of genes shared by `x` samples. 
+
+```{r fig.height=4, fig.width=7}
+pav_hist(my_pav, 
+         ring_r = .45,
+         y_title = "Number of genes")
+```
+
+
+### 5.3 `pav_stackbar()`
+
+&emsp;&emsp;The composition of genes in all samples can be viewed in `pav_stackbar()`. The chart consists of a hierarchically clustered tree and a bar plot. The `dend_width` and `name_width` are the relative widths of dendrogram and sample names. The dashed line and number labels indicate the mean value of cumulative sums. For instance, the first line is the mean of core gene number, the second line is the mean of (core + soft-core) gene number. 
+
+```{r fig.height=10, fig.width=5}
+pav_stackbar(my_pav,
+             name_width = .17,
+             dend_width = .1,
+             sample_name_size = 2)
+```
+
+
+&emsp;&emsp;If `show_relative` is TRUE, the result is relative values.
+```{r fig.height=10, fig.width=5}
+pav_stackbar(my_pav,
+             name_width = .17,
+             dend_width = .1,
+             sample_name_size = 2,
+             show_relative = T)
+```
+
+
+&emsp;&emsp;If you add `phen_info`, the sample names will be colored.
+
+```{r fig.height=10, fig.width=6}
+pav_stackbar(my_pav, 
+             name_width = .17,
+             dend_width = .1,
+             sample_name_size = 2,
+             add_phen_info = "Region")
+```
+
+
+### 5.4 `pav_heatmap()`
+
+&emsp;&emsp;Heatmap is an intuitive way to display total PAV data. `pav_heatmap()` provides a heatmap and two summary annotations of gene presence. The `anno_param_row_stat` and `anno_param_column_stat` are the parameters list and you can hide annotation by setting `list(show = FALSE)`.
+
+&emsp;&emsp;The columns are split into blocks according to gene types. If `split_block` is FALSE, the split will disappear. The names of blocks in the upper panel can be adjusted by `block_name_size` and `block_name_rot`.
+
+```{r fig.height=5, fig.width=7}
+pav_heatmap(my_pav, 
+            gene_type = c("core", "softcore", "distributed"),
+            block_name_size = 7)
+```
+
+&emsp;&emsp;The rows and columns can be clustered. Please note that when the number of rows or columns is huge, it will take a long time.
+
+```{r fig.height=5, fig.width=7}
+pav_heatmap(my_pav,
+            gene_type = c("softcore", "distributed"),
+            split_block = FALSE,
+            cluster_columns = TRUE, 
+            cluster_rows = TRUE,
+            column_dend_side = "bottom",
+            row_dend_side = "right")
+```
+
+&emsp;&emsp;If `split_block` is TRUE and `cluster_columns` is TRUE, clustering will be performed in each block.
+
+```{r fig.height=5, fig.width=7}
+pav_heatmap(my_pav, 
+            gene_type = c("softcore", "distributed"),
+            split_block = TRUE,
+            cluster_columns = TRUE)
+```
+
+&emsp;&emsp;The `phen_info` and `gene_info` can be added to the figure.
+
+```{r fig.height=6, fig.width=7}
+pav_heatmap(my_pav, 
+            gene_type = c("softcore", "distributed"),
+            add_phen_info = c("Genetic_sex", "Region"), 
+            phen_info_color_list = list(
+              Genetic_sex = c("XX" = "#A6D854", "XY" = "#8DA0CB", "Not Assigned" = "gray70"), 
+              Region = structure(c("#66C2A5", "#FFD92F", "#FC8D62"), names = unique(phen_info_data$Region))),
+            add_gene_info = c("length"),
+            gene_info_color_list = list(length = c("#dbebfa", "#377EB8")))
+```
+
+&emsp;&emsp;If you want to specify the order of rows/columns, you can set `row_sorted`/`column_sorted`. Please make sure to set `cluster_columns` and `split_block` to `FALSE` to get the desired result.
+
+### 5.5 `pav_cluster()`
+
+&emsp;&emsp;If you want to just show clustering of samples without a complex heatmap, you can use `pav_cluster()`.
+
+```{r fig.height=4, fig.width=7}
+pav_cluster(my_pav,
+            mult = .3,
+            sample_name_size = 2)
+```
+
+&emsp;&emsp;If you add `phen_info`, the sample names and lines will be colored.
+
+```{r fig.height=4, fig.width=7}
+pav_cluster(my_pav,
+            mult = .3,
+            sample_name_size = 2, 
+            add_phen_info = "Region",
+            phen_info_color_list = list(
+              Region = structure( c("#F8766D", "#00BA38", "#619CFF"), names = unique(phen_info_data$Region))))
+```
+
+### 5.6 `pav_pca()`
+ 
+&emsp;&emsp;The `pav_pca()` will perform PCA analysis for PAV data using `prcomp()`. The `center`, `scale`, and `rank` will pass to `prcomp()`.
+
+```{r fig.height=4, fig.width=5}
+pav_pca(my_pav)
+```
+
+&emsp;&emsp;If you add `phen_info`, the sample points will be colored.
+
+```{r fig.height=4, fig.width=7}
+pav_pca(my_pav, 
+        add_phen_info = "Region")
+```
+
+
+## 6. Module 3: Simulation
+
+### 6.1 `sim_stat()`
+
+&emsp;&emsp;Simulation can be used to predict the size of a pan-genome. The function `sim_stat()` is used to generate simulation results. It supports three genome types: pan-genome, core genome, and private genome. The simulation result is the input data for function `sim_plot` to visualize. If `parallel` is TRUE, package `snowfall` will be used for parallel computing to save time.
+
+```{r}
+my_sim <- sim_stat(my_pav, genome_type = c("pan", "core"))
+```
+
+
+### 6.2 `sim_plot()`
+
+&emsp;&emsp;The `sim_plot` offers four chart types: "box", "jitter", "ribbon" and "errorbar".
+
+
+```{r fig.height=4, fig.width=6}
+sim_plot(my_sim)
+sim_plot(my_sim, chart_type = "jitter")
+sim_plot(my_sim, chart_type = "ribbon")
+sim_plot(my_sim, chart_type = "errorbar")
+
+```
+
+### 6.3 `sim_multi_stat` and `sim_multi_plot`
+
+&emsp;&emsp;These two functions are similar to `sim_stat()` and `sim_plot()`. But they are for multiple simulations.
+
+```{r fig.height=5, fig.width=7}
+my_sim_2 <- sim_multi_stat(my_pav, "Region")
+sim_multi_plot(my_sim_2)
+```
+
+
+## 7. Module4: Phenotype Association
+
+
+### 7.1 `phen_stat()`
+
+&emsp;&emsp;Phenotype association can help researchers to understand the potential biological functions of gene PAVs. For discrete values, the fisher's exact test (`fisher.test()`) will be used to determine whether the distribution of each gene is uniform. For continuous values, Wilcoxon tests(`wilcox.test()`) will be performed.
+
+```{r}
+my_phen <- phen_stat(my_pav, 
+                    c("Genetic_sex", "DNA_source", "Region", "Coverage_mean"),
+                    p_adjust_method = "fdr")
+```
+
+
+### 7.2 `phen_heatmap()`
+
+&emsp;&emsp;The `phen_heatmap()` will show the main result of phenotype association analysis with a heat map. It requires the PAV object and the result from `phen_stat()`. The rows and columns represent genes and phenotypes respectively. You can flip coordinates using `flip` option. If `adjust_p` is TRUE, the adjusted p is used, otherwise the p-value is shown directly. Genes with at least one p_value/p_adjust lower than the threshold `p_threshold` will be displayed in the heatmap. The color scheme of p_value/p_adjust is generated by setting `cov_colors`. 
+
+```{r fig.height=3, fig.width=7}
+phen_heatmap(my_pav, 
+             my_phen,
+             cell_border_color = "white",
+             na_col = "gray90",
+             flip = T,
+             adjust_p = F,
+             p_threshold = 0.1,
+             column_names_size = 7)
+```
+
+&emsp;&emsp;By default, only the significant cells will be colored, the color of other cells is set to `na_col`. You can cancel this by setting `only_show_significant` to FALSE.
+
+```{r fig.height=3, fig.width=7}
+phen_heatmap(my_pav, 
+             my_phen,
+             cell_border_color = "white",
+             na_col = "gray90",
+             flip = T,
+             adjust_p = F,
+             p_threshold = 0.1,
+             column_names_size = 7,
+             only_show_significant = FALSE)
+```
+
+&emsp;&emsp;The `gene_info` can be added to the figure.
+
+```{r fig.height=2, fig.width=7}
+phen_heatmap(my_pav, 
+             my_phen,
+             cell_border_color = "white",
+             na_col = "gray90",
+             flip = T,
+             adjust_p = T,
+             p_threshold = 0.1,
+             column_names_size = 7,
+             add_gene_info = c("chr", "legnth"),
+             anno_param_gene = list(name_rot = 0))
+```
+
+### 7.3 `phen_manhattan`
+
+&emsp;&emsp;If you want to study a phenotype further, you can plot a Manhattan plot using `phen_manhattan()`. But it required chromosomes and position in the `gene_info` of `PAV` object. The p_value and p_ajusted can be chosen by `adjsut_p`. The most significant *n* genes will be highlighted and labeled.
+
+```{r fig.height=3, fig.width=7}
+phen_manhattan(my_pav, my_phen, "Region", "chr_n", "start", highlight_top_n = 10, highlight_text_size = 2,
+               x_text_size = 5)
+```
+
+
+### 7.4 `phen_block`
+
+&emsp;&emsp;If the phenotype is in discrete values, the `phen_block` can be used to observe the percentage of individuals containing the genes in every group. The number in brackets represents the sample size for a group.
+
+```{r fig.height=5, fig.width=7}
+phen_block(my_pav, my_phen, "Region", 
+           adjust_p = F,
+           p_threshold = .1, 
+           row_names_size = 6,
+           cell_border_color = "black")
+
+```
+
+&emsp;&emsp;By default, the p_value/p_adjusted will be shown in an annotation. If you want to view other information in `gene_info`, you can add them using `add_gene_info`.
+
+```{r fig.height=5, fig.width=7}
+phen_block(my_pav, my_phen, "Region", 
+           adjust_p = F,
+           p_threshold = .1, 
+           row_names_size = 6,
+           cell_border_color = "black", 
+           add_gene_info = c("p", "chr"))
+
+```
+
+
+### 7.5 `phen_bar` and `phen_violin`
+
+&emsp;&emsp;These two functions focus on showing the relationship between a certain gene and a certain phenotype. The `phen_bar()` designed for discrete values and the `phen_violin()` designed for continuous values.
+
+```{r fig.height=4, fig.width=4}
+phen_bar(my_pav, "Region", sample(my_pav@gene$name[my_pav@gene$type == "distributed"], 1))
+phen_violin(my_pav, "Coverage_mean", sample(my_pav@gene$name[my_pav@gene$type == "distributed"], 1))
+
+```
+
+&emsp;&emsp;Putting multiple resulted graphs together can be helpful to observe biological insights.
+
+```{r fig.height=6, fig.width=7}
+do.call(gridExtra::grid.arrange, 
+        lapply(sample(my_pav@gene$name[my_pav@gene$type == "distributed"], 4), function(x){
+          phen_bar(my_pav, "Region", x, legend_title_size = 9, legend_text_size = 8)
+        }))
+
+```
+
+
+```{r fig.height=8, fig.width=7}
+do.call(gridExtra::grid.arrange, 
+        lapply(sample(my_pav@gene$name[my_pav@gene$type == "distributed"], 4), function(x){
+          phen_violin(my_pav, "Coverage_mean", x, legend_title_size = 9, legend_text_size = 8)
+        }))
+
+```
+
+# Reference
+Mallick S, Li H, Lipson M, et al. The Simons Genome Diversity Project: 300 genomes from 142 diverse populations. Nature. 2016;538(7624):201-206. doi:10.1038/nature18964
+
+
+

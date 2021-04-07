@@ -1,0 +1,35 @@
+Package: vPanG
+Type: Package
+Title: An R package to analyze and visualize PAV results from pan-genome of "map-to-pan" strategy.
+Version: 0.1.0
+Author: person("Xiaorui", "Dong", email = "xiaonui8@163.com", role = c("aut", "cre"))
+Maintainer: Xiaorui Dong <xiaonui8@163.com>
+Description: Pan-genome is the totality of genes found across members of a given group, 
+  revealing the diversity and functional potential within that group. PAV(Presence-absence 
+  variation) analysis is an essential step in pan-analysis.“Map-to-pan” is a common strategy 
+  for eukaryotic pan-genome analyses. vPan is an efficient tool to explore and visualize 
+  the complex result in PAV analysis. It provides four modules to display gene coverage 
+  distribution, analyze and visualize PAV table, simulate pan/core genome sizes and find 
+  phenotype associated genes.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1
+Depends: 
+    R (>= 4.0.0)
+Imports:
+    ggplot2 (>= 3.3.2),
+    snowfall,
+    ComplexHeatmap (>= 2.4.3),
+    data.table,
+    ggdendro,
+    ggrepel,
+    ggsignif,
+    grid,
+    parallel,
+    randomcoloR
+Suggests: 
+    knitr,
+    rmarkdown,
+    gridExtra
+VignetteBuilder: knitr
