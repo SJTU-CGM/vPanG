@@ -10,7 +10,7 @@
 &emsp;&emsp;“Map-to-pan” is a common strategy for eukaryotic pan-genome analyses. A pan-genome is first constructed by integrating the reference genome and non-reference sequences. Then, reads are aligned to the pan-genome and the percentage of gene region and coding region covered by read alignment are examined. Finally, gene presence/absence variations (PAVs) are determined and consequent analysis is carried out based on this resulted PAV table.
 
 
-### 1.2 The core processing workflow of vPan
+### 1.2 The core processing workflow of vPanG
 
 &emsp;&emsp;The tool vPanG is efficient to explore and visualize the complex results in PAV analysis. It provides four modules to 1) display gene coverage distribution, 2) analyze and visualize PAV table, 3) estimate pan/core genome sizes by simulation, and 4) find phenotype-associated genes.
 
@@ -60,7 +60,7 @@ install_github("SJTU-CGM/vPanG", build_vignettes = TRUE)
 
 ## 3 User manual
 
-&emsp;&emsp;You can use `vignette("vPan")` in R to view the vignette of vPan. It can help you start using vPan, including the format and examples of input data, and the use of functions. You can use `?function` to view the help documentation of the function, such as `?pav_heatmap`. 
+&emsp;&emsp;You can use `vignette("vPanG")` in R to view the vignette of vPanG. It can help you start using vPanG, including the format and examples of input data, and the use of functions. You can use `?function` to view the help documentation of the function, such as `?pav_heatmap`. 
 
 
 
