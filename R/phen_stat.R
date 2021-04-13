@@ -33,6 +33,28 @@ phen_stat <- function(pav_obj,
 
   genes <- rownames(pav_data)
   phens <- colnames(phen_data)
+
+  phen_stat_p <- function(cur_phen_data, cur_gene_data){
+    if(is.numeric(cur_phen_data)){
+      p_value <- tryCatch({
+        presence_data <- cur_phen_data[cur_gene_data == 1]
+        absence_data <- cur_phen_data[cur_gene_data == 0]
+        wilcox_res <- wilcox.test(presence_data, absence_data)
+        wilcox_res$p.value
+      }, error = function(e) {
+        NA
+      })
+    } else {
+      p_value <- tryCatch({
+        fisher_res <- fisher.test(cur_phen_data, cur_gene_data, simulate.p.value = F)
+        fisher_res$p.value
+      }, error = function(e) {
+        NA
+      })
+    }
+    p_value
+  }
+
   phen_res <- do.call(
     rbind,
     lapply(phens, function(phen){
@@ -66,30 +88,6 @@ phen_stat <- function(pav_obj,
 }
 
 
-
-
-
-
-phen_stat_p <- function(cur_phen_data, cur_gene_data){
-  if(is.numeric(cur_phen_data)){
-    p_value <- tryCatch({
-      presence_data <- cur_phen_data[cur_gene_data == 1]
-      absence_data <- cur_phen_data[cur_gene_data == 0]
-      wilcox_res <- wilcox.test(presence_data, absence_data)
-      wilcox_res$p.value
-    }, error = function(e) {
-      NA
-    })
-  } else {
-    p_value <- tryCatch({
-      fisher_res <- fisher.test(cur_phen_data, cur_gene_data, simulate.p.value = F)
-      fisher_res$p.value
-    }, error = function(e) {
-      NA
-    })
-  }
-  p_value
-}
 
 
 

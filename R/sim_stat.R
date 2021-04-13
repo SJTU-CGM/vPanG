@@ -103,6 +103,19 @@ sim_n <- function(data,groups,n){
 
 sim_n_pallel <- function(data, groups, n, ncore){
   require(snowfall)
+  cal_num <- function(data, groups, core_n){
+    col_sum <- colSums(data[,-1,])
+    stat_res <- sapply(groups, function(x){
+      if(x == "pan"){
+        sum(col_sum > 0)
+      } else if( x == "core"){
+        sum(col_sum == nrow(data))
+      } else if( x == "private"){
+        sum(col_sum == 1) - core_n
+      }
+    })
+    return(stat_res)
+  }
   snowfall::sfInit(parallel = TRUE, cpus = ncore )
   snowfall::sfExport("cal_num")
   snowfall::sfExport("data")
